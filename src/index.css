@@ -1,0 +1,14 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-primary: #e60012; /* Primary */
+  --color-accent: #ffcd00; /* Accent */
+  --color-neutral-100: #ffffff; /* Neutral100 */
+  --color-neutral-200: #f5f5f5; /* Neutral200 */
+  --color-text-primary: #212121; /* TextPrimary */
+  --color-error: #dc3545; /* Error */
+  --color-success: #00c853; /* Success */
+}
