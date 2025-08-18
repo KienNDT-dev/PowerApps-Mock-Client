@@ -18,34 +18,6 @@ export default function PageShell() {
         <div className="mx-auto max-w-7xl px-4 py-3 flex items-center gap-3">
           <img src={logoUrl} alt="Company logo" className="h-7 w-auto" />
           <span className="font-semibold">Contractor Portal</span>
-
-          {/* Top nav (optional) */}
-          <nav className="ml-auto hidden md:flex items-center gap-4">
-            <NavLink
-              to="/dashboard"
-              className={({ isActive }) =>
-                `px-2 py-1 rounded ${
-                  isActive
-                    ? "bg-primary text-neutral-100"
-                    : "hover:bg-neutral-200"
-                }`
-              }
-            >
-              Dashboard
-            </NavLink>
-            <NavLink
-              to="/invitations"
-              className={({ isActive }) =>
-                `px-2 py-1 rounded ${
-                  isActive
-                    ? "bg-primary text-neutral-100"
-                    : "hover:bg-neutral-200"
-                }`
-              }
-            >
-              Invitations
-            </NavLink>
-          </nav>
         </div>
       </header>
 

@@ -7,6 +7,7 @@ import { queryClient } from "./lib/queryClient.js";
 import { setAccessTokenGetter as setAuthAxiosTokenGetter } from "./lib/authAxios";
 import { setAccessTokenGetter as setHttpTokenGetter } from "./lib/http";
 import { AuthProvider, useAuth } from "./context/AuthProvider";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 
 function AuthTokenSync() {
   const { accessToken, setAccessToken } = useAuth();
@@ -23,6 +24,7 @@ createRoot(document.getElementById("root")).render(
     <AuthProvider>
       <AuthTokenSync />
       <QueryClientProvider client={queryClient}>
+        <ReactQueryDevtools initialIsOpen={true} />
         <AppRouter />
       </QueryClientProvider>
     </AuthProvider>

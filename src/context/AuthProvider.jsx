@@ -4,7 +4,8 @@ import React, { createContext, useContext, useState, useCallback } from "react";
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
-  const [accessToken, setAccessToken] = useState(null);
+  const [accessToken, setAccessToken] = useState(() => localStorage.getItem("accessToken"));
+  const [isLoading, setIsLoading] = useState(false);
   const isAuthenticated = !!accessToken;
 
   // Login: POST to /contractor-auth/login, store access token
@@ -14,13 +15,14 @@ export function AuthProvider({ children }) {
       { email, password },
       { withCredentials: true }
     );
-    const token =
-      res.data?.accessToken || res.data?.access_token || res.data?.token;
+    const token = res.data?.accessToken || res.data?.access_token || res.data?.token;
 
     if (token) {
       setAccessToken(token);
+      localStorage.setItem("accessToken", token);
       console.log("✅ Access token stored in memory");
     } else {
+      localStorage.removeItem("accessToken");
       console.error("❌ No access token found in login response:", res.data);
     }
 
@@ -35,17 +37,14 @@ export function AuthProvider({ children }) {
     } catch (error) {
     } finally {
       setAccessToken(null);
+      localStorage.removeItem("accessToken");
       setIsLoading(false);
     }
   };
 
   // Refresh: POST to /auth/refresh, update access token
   const refresh = useCallback(async () => {
-    const res = await authAxios.post(
-      "/auth/refresh",
-      {},
-      { withCredentials: true }
-    );
+    const res = await authAxios.post("/auth/refresh", {}, { withCredentials: true });
     setAccessToken(res.data.accessToken);
     return res.data.accessToken;
   }, []);
