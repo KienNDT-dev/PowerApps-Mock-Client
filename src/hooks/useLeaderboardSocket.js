@@ -1,12 +1,16 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSocket } from "./useSocket";
+import { useGetLeaderboard } from "./useGetLeaderboard";
 
-export function useBidSocket(token, bidPackageId) {
+export function useLeaderboardSocket(token, bidPackageId) {
   const { socket, isConnected } = useSocket(token);
   const queryClient = useQueryClient();
-  const [viewers, setViewers] = useState(0);
   const [roomJoined, setRoomJoined] = useState(false);
+  const [viewers, setViewers] = useState(0);
+
+  // Fetch initial leaderboard data
+  const { data: leaderboardData, isLoading, error, refetch } = useGetLeaderboard(bidPackageId);
 
   useEffect(() => {
     if (!socket || !isConnected || !bidPackageId) {
@@ -14,11 +18,12 @@ export function useBidSocket(token, bidPackageId) {
       return;
     }
 
-    console.log("Joining bid room:", bidPackageId);
+    console.log("Joining leaderboard room:", bidPackageId);
 
+    // Join the bid package room
     socket.emit("join:bidPackage", { bidPackageId }, (response) => {
       if (response?.success) {
-        console.log("✅ Joined bid room:", response.roomName);
+        console.log("✅ Joined leaderboard room:", response.roomName);
         setRoomJoined(true);
       } else {
         console.error("❌ Failed to join room:", response?.message);
@@ -26,30 +31,39 @@ export function useBidSocket(token, bidPackageId) {
       }
     });
 
+    // Handle new bid events
     const handleNewBid = (bid) => {
       console.log("📊 New bid received:", bid);
 
       queryClient.setQueryData(["leaderboard", bidPackageId], (oldData) => {
         if (!oldData) return oldData;
 
+        // Check if bid already exists
         const existingBidIndex = oldData.bids.findIndex((b) => b.bidId === bid.bidId);
-        let updatedBids;
 
+        let updatedBids;
         if (existingBidIndex >= 0) {
+          // Update existing bid
           updatedBids = [...oldData.bids];
           updatedBids[existingBidIndex] = { ...updatedBids[existingBidIndex], ...bid };
         } else {
+          // Add new bid
           updatedBids = [...oldData.bids, bid];
         }
 
+        // Sort by amount and recalculate ranks
         const sortedBids = updatedBids
           .sort((a, b) => a.amount - b.amount)
           .map((bid, index) => ({ ...bid, rank: index + 1 }));
 
-        return { ...oldData, bids: sortedBids };
+        return {
+          ...oldData,
+          bids: sortedBids,
+        };
       });
     };
 
+    // Handle bid updates
     const handleUpdatedBid = (bid) => {
       console.log("📊 Bid updated:", bid);
 
@@ -61,10 +75,20 @@ export function useBidSocket(token, bidPackageId) {
           .sort((a, b) => a.amount - b.amount)
           .map((bid, index) => ({ ...bid, rank: index + 1 }));
 
-        return { ...oldData, bids: updatedBids };
+        return {
+          ...oldData,
+          bids: updatedBids,
+        };
       });
     };
 
+    // Handle viewer count updates
+    const handleViewerCount = ({ viewers: count }) => {
+      console.log("👥 Viewer count updated:", count);
+      setViewers(count);
+    };
+
+    // Handle bid deletions (if needed)
     const handleBidDeleted = ({ bidId }) => {
       console.log("🗑️ Bid deleted:", bidId);
 
@@ -76,13 +100,11 @@ export function useBidSocket(token, bidPackageId) {
           .sort((a, b) => a.amount - b.amount)
           .map((bid, index) => ({ ...bid, rank: index + 1 }));
 
-        return { ...oldData, bids: updatedBids };
+        return {
+          ...oldData,
+          bids: updatedBids,
+        };
       });
-    };
-
-    const handleViewerCount = ({ viewers: count }) => {
-      console.log("👥 Viewer count updated:", count);
-      setViewers(count);
     };
 
     socket.on("bid:new", handleNewBid);
@@ -91,7 +113,7 @@ export function useBidSocket(token, bidPackageId) {
     socket.on("viewer:count", handleViewerCount);
 
     return () => {
-      console.log("🧹 Cleaning up bid socket");
+      console.log("🧹 Cleaning up leaderboard socket listeners");
 
       if (socket && bidPackageId) {
         socket.emit("leave:bidPackage", { bidPackageId });
@@ -114,7 +136,15 @@ export function useBidSocket(token, bidPackageId) {
       });
       return;
     }
-    socket.emit("bid:create", { bidPackageId, bidPrice, bidName }, callback);
+
+    socket.emit("bid:create", { bidPackageId, bidPrice, bidName }, (response) => {
+      if (response?.success) {
+        console.log("✅ Bid created successfully:", response.bid);
+      } else {
+        console.error("❌ Failed to create bid:", response?.message);
+      }
+      callback?.(response);
+    });
   };
 
   const updateBid = (bidId, updateFields, callback) => {
@@ -126,13 +156,36 @@ export function useBidSocket(token, bidPackageId) {
       return;
     }
 
-    socket.emit("bid:update", { bidId, bidPackageId, updateFields }, callback);
+    socket.emit("bid:update", { bidId, bidPackageId, updateFields }, (response) => {
+      if (response?.success) {
+        console.log("✅ Bid updated successfully:", response.bid);
+      } else {
+        console.error("❌ Failed to update bid:", response?.message);
+      }
+      callback?.(response);
+    });
+  };
+
+  // Helper function to refresh leaderboard manually
+  const refreshLeaderboard = () => {
+    refetch();
   };
 
   return {
+    // Data
+    leaderboard: leaderboardData,
+    bids: leaderboardData?.bids || [],
+    deadline: leaderboardData?.deadline,
     viewers,
+
+    // Status
+    isLoading,
+    error,
     isConnected: isConnected && roomJoined,
+
+    // Actions
     createBid,
     updateBid,
+    refreshLeaderboard,
   };
 }

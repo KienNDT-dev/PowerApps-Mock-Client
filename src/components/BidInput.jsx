@@ -3,7 +3,16 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/utils/formatCurrency";
 
-export default function BidInput({ value, onChange, onSubmit, error, disabled, priceEstimate }) {
+export default function BidInput({
+  value,
+  onChange,
+  onSubmit,
+  error,
+  disabled,
+  priceEstimate,
+  existingBid = null,
+  isSubmitting = false,
+}) {
   const [displayValue, setDisplayValue] = useState("");
   const [localError, setLocalError] = useState("");
   const [isValid, setIsValid] = useState(true);
@@ -21,6 +30,10 @@ export default function BidInput({ value, onChange, onSubmit, error, disabled, p
   const minAllowed = !isNaN(minExact) ? Math.floor(minExact / step) * step : NaN;
   const maxAllowed = !isNaN(maxExact) ? Math.ceil(maxExact / step) * step : NaN;
 
+  // Check if this is an update operation
+  const isUpdate = existingBid && existingBid.bidId;
+  const buttonText = isUpdate ? "Update Bid" : "Submit Bid";
+
   useEffect(() => {
     setDisplayValue(formatCurrency(value || ""));
     validate(value || "");
@@ -32,30 +45,27 @@ export default function BidInput({ value, onChange, onSubmit, error, disabled, p
       setIsValid(false);
       return;
     }
-    let n = parseInt(rawDigits, 10);
+
+    const n = parseInt(rawDigits, 10);
     if (isNaN(n) || n <= 0) {
       setLocalError("Please enter a valid amount.");
       setIsValid(false);
       return;
     }
 
-    // Auto-clamp if above max
-    if (!isNaN(maxAllowed) && n > maxAllowed) {
-      n = maxAllowed;
-      setDisplayValue(formatCurrency(n));
-      onChange({ target: { value: String(n) } });
-    }
-
     if (!isNaN(minAllowed) && !isNaN(maxAllowed)) {
       if (n < minAllowed || n > maxAllowed) {
-        setLocalError(
-          `Your bid must be within ~±5% of the offer price (${formatCurrency(
-            minAllowed
-          )} - ${formatCurrency(maxAllowed)} VND).`
-        );
+        setLocalError(`Your bid must be within ~±5% of the offer price.`);
         setIsValid(false);
         return;
       }
+    }
+
+    // Additional validation for updates - check if amount is different
+    if (isUpdate && existingBid && n === existingBid.amount) {
+      setLocalError("Please enter a different amount to update your bid.");
+      setIsValid(false);
+      return;
     }
 
     setLocalError("");
@@ -71,11 +81,19 @@ export default function BidInput({ value, onChange, onSubmit, error, disabled, p
 
   const effectiveError = error || localError;
   const isSubmitDisabled =
-    disabled || !!effectiveError || !isValid || !(value && parseInt(value, 10) > 0);
+    disabled || !!effectiveError || !isValid || !(value && parseInt(value, 10) > 0) || isSubmitting;
 
   return (
     <div className="border-t pt-6">
-      <h3 className="font-semibold mb-4">Place Your Bid</h3>
+      <h3 className="font-semibold mb-4">
+        {isUpdate ? "Update Your Bid" : "Place Your Bid"}
+        {isUpdate && existingBid && (
+          <span className="text-sm font-normal text-muted-foreground ml-2">
+            (Current: {formatCurrency(existingBid.amount)} VND)
+          </span>
+        )}
+      </h3>
+
       <div className="space-y-4">
         <div>
           <Input
@@ -86,22 +104,33 @@ export default function BidInput({ value, onChange, onSubmit, error, disabled, p
             onChange={handleChange}
             aria-invalid={!!effectiveError}
             className={effectiveError ? "border-[color:var(--color-error)]" : ""}
-            disabled={disabled}
+            disabled={disabled || isSubmitting}
           />
-          {effectiveError ? (
-            <p className="text-sm text-[color:var(--color-error)] mt-1">{effectiveError}</p>
-          ) : !isNaN(minAllowed) ? (
+
+          {!isNaN(minAllowed) && (
             <p className="text-xs text-[color:var(--color-text-primary)]/60 mt-1">
               Allowed range: {formatCurrency(minAllowed)} – {formatCurrency(maxAllowed)} VND
             </p>
-          ) : null}
+          )}
+
+          {effectiveError && (
+            <p className="text-sm text-[color:var(--color-error)] mt-1">{effectiveError}</p>
+          )}
         </div>
+
         <Button
           onClick={onSubmit}
           className="w-full bg-[color:var(--color-primary)] hover:bg-[color:var(--color-primary)]/90 text-white"
           disabled={isSubmitDisabled}
         >
-          Submit Bid
+          {isSubmitting ? (
+            <span className="flex items-center gap-2">
+              <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
+              {isUpdate ? "Updating..." : "Submitting..."}
+            </span>
+          ) : (
+            buttonText
+          )}
         </Button>
       </div>
     </div>

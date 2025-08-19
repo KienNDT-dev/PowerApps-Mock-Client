@@ -1,38 +1,86 @@
-import { useEffect, useRef } from "react";
+import { useRef, useEffect, useState } from "react";
 import { io } from "socket.io-client";
 
 const SOCKET_URL = import.meta.env.VITE_API || "http://localhost:5000";
-let socket;
+let socketInstance = null;
 
 export function useSocket(token) {
   const socketRef = useRef(null);
+  const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    if (!token) return;
-    if (!socket) {
-      socket = io(SOCKET_URL, {
-        extraHeaders: {
-          access_token: token,
-        },
-      });
-    } else {
-      socket.auth = { token };
-      socket.connect();
+    console.log("useSocket effect running with token:", !!token);
+
+    if (!token || token.trim() === "") {
+      console.log("No token provided, cleaning up socket");
+      if (socketInstance) {
+        socketInstance.disconnect();
+        socketInstance = null;
+        socketRef.current = null;
+        setIsConnected(false);
+      }
+      return;
     }
 
-    socketRef.current = socket;
+    if (!socketInstance) {
+      console.log("Creating NEW socket connection to:", SOCKET_URL);
 
-    socket.on("connect", () => console.log("Socket connected:", socket.id));
-    socket.on("disconnect", (reason) => console.log("Socket disconnected:", reason));
+      socketInstance = io(SOCKET_URL, {
+        auth: {
+          token: token,
+        },
+        transports: ["websocket"],
+        timeout: 10000,
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        maxReconnectionAttempts: 3,
+      });
+
+      socketInstance.on("connect", () => {
+        console.log("✅ Socket connected successfully:", socketInstance.id);
+        setIsConnected(true);
+      });
+
+      socketInstance.on("disconnect", (reason) => {
+        console.log("❌ Socket disconnected:", reason);
+        setIsConnected(false);
+      });
+
+      socketInstance.on("connect_error", (error) => {
+        console.error("🚨 Socket connection error:", error);
+        setIsConnected(false);
+
+        if (error.message.includes("token")) {
+          console.log("Token error detected, resetting socket");
+          socketInstance.disconnect();
+          socketInstance = null;
+          socketRef.current = null;
+        }
+      });
+    }
+
+    socketRef.current = socketInstance;
 
     return () => {
-      socket.off("connect");
-      socket.off("disconnect");
-      socket.disconnect();
-      socket = null;
-      socketRef.current = null;
+      console.log("useSocket cleanup function called");
     };
   }, [token]);
 
-  return socketRef;
+  useEffect(() => {
+    return () => {
+      console.log("useSocket unmounting, cleaning up");
+      if (socketInstance) {
+        socketInstance.disconnect();
+        socketInstance = null;
+        socketRef.current = null;
+        setIsConnected(false);
+      }
+    };
+  }, []);
+
+  return {
+    socket: socketRef.current,
+    isConnected,
+  };
 }
