@@ -1,258 +1,290 @@
-import { useState, useEffect, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { User, Clock, Trophy } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Clock } from "lucide-react";
 import { useGetMyBidPackage } from "@/hooks/useGetMyBidPackage";
 import { useSocket } from "@/hooks/useSocket";
 import { useAuth } from "@/context/AuthProvider";
+import BidPackageHeader from "@/components/BidPackageHeader";
+import BidInput from "@/components/BidInput";
+import Leaderboard from "@/components/Leaderboard";
+import { formatDate } from "@/utils/formatDate";
+import { formatAmount } from "@/utils/formatAmount";
+import Countdown from "react-countdown";
 
 export default function BiddingPortal() {
   const { accessToken } = useAuth();
-  const [timeLeft, setTimeLeft] = useState("");
   const { data, isLoading } = useGetMyBidPackage();
   const socketRef = useSocket(accessToken);
-  useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket) return;
-    const handleConnect = () => {
-      console.log("✅ Connected to Socket.IO server!", socket.id);
-    };
-    const handleDisconnect = (reason) => {
-      console.log("❌ Disconnected from Socket.IO server:", reason);
-    };
-    socket.on("connect", handleConnect);
-    socket.on("disconnect", handleDisconnect);
-    return () => {
-      socket.off("connect", handleConnect);
-      socket.off("disconnect", handleDisconnect);
-    };
-  }, [socketRef]);
 
-  // Destructure API safely
+  const [bidAmount, setBidAmount] = useState("");
+  const [error, setError] = useState("");
+  const [leaderboard, setLeaderboard] = useState({ viewers: 0, bids: [] });
+
   const {
+    cr97b_bidpackageid,
     cr97b_submissiondeadline,
     cr97b_name,
     cr97b_bidpackagecode,
+    cr97b_priceestimate,
     cr97b_description,
+    cr97b_createdon,
     hasBid,
-    myBid,
-    bids = [], // expected array from API in future
+    canBid,
   } = data || {};
 
-  useEffect(() => {
-    if (!cr97b_submissiondeadline) return;
-
-    const calculateTimeLeft = () => {
-      const deadline = new Date(cr97b_submissiondeadline);
-      const now = new Date();
-      const difference = deadline - now;
-
-      if (difference > 0) {
-        const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
-        const minutes = Math.floor((difference / 1000 / 60) % 60);
-        const seconds = Math.floor((difference / 1000) % 60);
-
-        return `${days}d ${hours}h ${minutes}m ${seconds}s`;
-      }
-      return "Expired";
-    };
-
-    const timer = setInterval(() => setTimeLeft(calculateTimeLeft()), 1000);
-    setTimeLeft(calculateTimeLeft());
-
-    return () => clearInterval(timer);
-  }, [cr97b_submissiondeadline]);
-
-  const formatPrice = (price) =>
-    new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-    }).format(price);
-
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case "Leading":
-        return (
-          <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
-            <Trophy className="w-3 h-3 mr-1" />
-            Leading
-          </Badge>
-        );
-      case "My Bid":
-        return (
-          <Badge variant="outline" className="border-blue-500 text-blue-700">
-            <User className="w-3 h-3 mr-1" />
-            My Bid
-          </Badge>
-        );
-      default:
-        return <Badge variant="secondary">Outbid</Badge>;
+  const handleBidSubmit = () => {
+    if (!bidAmount || isNaN(Number(bidAmount))) {
+      setError("Please enter a valid amount");
+      return;
     }
+    const amount = Number(bidAmount);
+    if (amount <= 0) {
+      setError("Amount must be greater than 0");
+      return;
+    }
+    setError("");
+    const newBid = {
+      bidId: `new-${Date.now()}`,
+      contractorId: "current-user",
+      contractorAlias: "My Company",
+      amount: amount,
+      currency: "VND",
+      isMine: true,
+      submittedOn: new Date().toISOString(),
+      rank: 1,
+    };
+    const updatedBids = [
+      newBid,
+      ...leaderboard.bids.map((bid) => ({
+        ...bid,
+        rank: bid.rank + 1,
+        isMine: false,
+      })),
+    ]
+      .sort((a, b) => a.amount - b.amount)
+      .map((bid, index) => ({
+        ...bid,
+        rank: index + 1,
+      }));
+    setLeaderboard((prev) => ({
+      ...prev,
+      bids: updatedBids,
+    }));
+    setBidAmount("");
   };
 
-  const rankedBids = useMemo(() => {
-    if (!Array.isArray(bids)) return [];
-    return [...bids]
-      .sort((a, b) => a.price - b.price)
-      .map((b, i) => ({
-        ...b,
-        rank: i + 1,
-      }));
-  }, [bids]);
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket || !cr97b_bidpackageid) return;
+
+    socket.emit("join:bidPackage", { bidPackageId: cr97b_bidpackageid });
+
+    const handleNewBid = (bid) => {
+      setLeaderboard((prev) => {
+        const exists = prev.bids.find((b) => b.bidId === bid.bidId);
+        if (exists) return prev;
+        const updated = [...prev.bids, bid]
+          .sort((a, b) => a.amount - b.amount)
+          .map((b, idx) => ({ ...b, rank: idx + 1 }));
+        return { ...prev, bids: updated };
+      });
+    };
+    const handleUpdatedBid = (bid) => {
+      setLeaderboard((prev) => {
+        const updated = prev.bids
+          .map((b) => (b.bidId === bid.bidId ? { ...b, ...bid } : b))
+          .sort((a, b) => a.amount - b.amount)
+          .map((b, idx) => ({ ...b, rank: idx + 1 }));
+        return { ...prev, bids: updated };
+      });
+    };
+    const handleViewers = (count) => {
+      setLeaderboard((prev) => ({ ...prev, viewers: count }));
+    };
+
+    socket.on("bid:new", handleNewBid);
+    socket.on("bid:updated", handleUpdatedBid);
+    socket.on("room:viewers", handleViewers);
+
+    return () => {
+      socket.emit("leave:bidPackage", { bidPackageId: cr97b_bidpackageid });
+      socket.off("bid:new", handleNewBid);
+      socket.off("bid:updated", handleUpdatedBid);
+      socket.off("room:viewers", handleViewers);
+    };
+  }, [socketRef, cr97b_bidpackageid]);
+
+  useEffect(() => {
+    if (!data) return;
+    setLeaderboard((prev) => ({
+      ...prev,
+      bids: Array.isArray(data.bids)
+        ? data.bids
+            .map((bid, idx) => ({
+              ...bid,
+              rank: idx + 1,
+              isMine: bid.isMine || false,
+            }))
+            .sort((a, b) => a.amount - b.amount)
+            .map((bid, idx) => ({ ...bid, rank: idx + 1 }))
+        : [],
+    }));
+  }, [data]);
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-200">
-        <span className="text-lg text-neutral-600 animate-pulse">Loading bid package...</span>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <span className="text-lg text-muted-foreground animate-pulse">Loading bid package...</span>
       </div>
     );
   }
 
   if (!data) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-200">
-        <span className="text-lg text-neutral-600">No bid package available.</span>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <span className="text-lg text-muted-foreground">No bid package available.</span>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-neutral-100 p-4">
-      <div className="p-4">
-        <h2 className="text-lg font-bold">Socket.IO Test</h2>
-        <p>Check your browser console for connection status.</p>
-      </div>
-      <div className="max-w-6xl mx-auto space-y-6">
-        {/* ---------------- Header ---------------- */}
-        <Card className="border-0 shadow-lg overflow-hidden">
-          <CardHeader className="bg-primary text-white rounded-t-lg">
-            <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
-              <div>
-                <CardTitle className="text-2xl font-bold mb-1">{cr97b_name}</CardTitle>
-                <p className="text-white/90 text-lg">{cr97b_bidpackagecode}</p>
-              </div>
-              <div className="text-right">
-                <div className="flex items-center gap-2 mb-1 justify-end">
-                  <Clock className="w-5 h-5" />
-                  <span className="text-sm text-neutral-100/80">Submission Deadline</span>
+    <div className="min-h-screen bg-background p-6">
+      <div className="max-w-7xl mx-auto">
+        <div className="grid grid-cols-5 gap-6 h-[calc(100vh-3rem)]">
+          {/* Left Container */}
+          <div className="col-span-4 bg-white">
+            <Card className="h-full rounded-2xl shadow-lg">
+              <BidPackageHeader
+                name={cr97b_name}
+                code={cr97b_bidpackagecode}
+                priceEstimate={cr97b_priceestimate}
+                hasBid={hasBid}
+                canBid={canBid}
+              />
+              <CardContent className="space-y-8 text-[color:var(--color-text-primary)]">
+                {/* Description */}
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-base">Detailed Description</h3>
+                  <div className="max-h-36 overflow-y-auto rounded-lg border border-[color:var(--color-neutral-200)] bg-[color:var(--color-neutral-200)] p-3 text-sm leading-relaxed shadow-inner">
+                    <p className="text-slate-700">{cr97b_description}</p>
+                  </div>
                 </div>
-                <div
-                  className={`
-      text-2xl font-extrabold tracking-wide
-      ${
-        timeLeft === "Expired"
-          ? "text-neutral-400"
-          : timeLeft.includes("d") || timeLeft.includes("h")
-            ? "text-[--color-accent]"
-            : "text-[--color-error] animate-pulse"
-      }
-    `}
-                >
-                  {timeLeft}
+
+                {/* Deadline Section */}
+                <div className="rounded-xl border border-[color:var(--color-primary)] bg-[color:var(--color-primary)]/5 p-4 flex flex-col gap-4">
+                  {/* Deadline title + date */}
+                  <div className="flex items-start gap-3">
+                    <Clock className="h-6 w-6 text-[color:var(--color-primary)] mt-1" />
+                    <div>
+                      <p className="text-sm font-medium text-[color:var(--color-text-primary)]/70">
+                        Submission Deadline
+                      </p>
+                      <p className="text-lg font-bold text-[color:var(--color-primary)]">
+                        {formatDate(cr97b_submissiondeadline)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Countdown */}
+                  <div className="flex items-center justify-between gap-2">
+                    <Countdown
+                      date={new Date(cr97b_submissiondeadline)}
+                      renderer={({ days, hours, minutes, seconds, completed }) => {
+                        if (completed) {
+                          return (
+                            <span className="text-[color:var(--color-error)] font-semibold text-lg">
+                              Closed
+                            </span>
+                          );
+                        }
+                        return (
+                          <div className="flex gap-3 w-full justify-around">
+                            {/* Days */}
+                            <div className="flex flex-col items-center px-3 py-2 rounded-md bg-[color:var(--color-neutral-200)] min-w-[60px]">
+                              <span className="text-lg font-extrabold text-[color:var(--color-primary)]">
+                                {days}
+                              </span>
+                              <span className="text-[11px] uppercase tracking-wide text-[color:var(--color-text-primary)]/70">
+                                Days
+                              </span>
+                            </div>
+                            {/* Hours */}
+                            <div className="flex flex-col items-center px-3 py-2 rounded-md bg-[color:var(--color-neutral-200)] min-w-[60px]">
+                              <span className="text-lg font-extrabold text-[color:var(--color-primary)]">
+                                {hours}
+                              </span>
+                              <span className="text-[11px] uppercase tracking-wide text-[color:var(--color-text-primary)]/70">
+                                Hrs
+                              </span>
+                            </div>
+                            {/* Minutes */}
+                            <div className="flex flex-col items-center px-3 py-2 rounded-md bg-[color:var(--color-neutral-200)] min-w-[60px]">
+                              <span className="text-lg font-extrabold text-[color:var(--color-primary)]">
+                                {minutes}
+                              </span>
+                              <span className="text-[11px] uppercase tracking-wide text-[color:var(--color-text-primary)]/70">
+                                Min
+                              </span>
+                            </div>
+                            {/* Seconds */}
+                            <div
+                              className={`flex flex-col items-center px-3 py-2 rounded-md bg-[color:var(--color-neutral-200)] min-w-[60px] ${
+                                days === 0 && hours === 0 ? "animate-pulse" : ""
+                              }`}
+                            >
+                              <span className="text-lg font-extrabold text-[color:var(--color-primary)]">
+                                {seconds}
+                              </span>
+                              <span className="text-[11px] uppercase tracking-wide text-[color:var(--color-text-primary)]/70">
+                                Sec
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      }}
+                    />
+                  </div>
                 </div>
-              </div>
-            </div>
-          </CardHeader>
-        </Card>
 
-        {/* ---------------- Description ---------------- */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Bid Package Description</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {cr97b_description ? (
-              <p className="text-neutral-700 leading-relaxed">{cr97b_description}</p>
-            ) : (
-              <p className="text-neutral-400 italic">No description provided.</p>
-            )}
-          </CardContent>
-        </Card>
+                {/* Bid Input */}
+                <div className="pt-4 border-t border-[color:var(--color-neutral-200)]">
+                  <BidInput
+                    priceEstimate={cr97b_priceestimate}
+                    value={bidAmount}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^0-9]/g, "");
+                      setBidAmount(value);
+                      if (error) setError("");
+                    }}
+                    onSubmit={handleBidSubmit}
+                    error={error}
+                    disabled={!canBid}
+                  />
 
-        {/* ---------------- Ranking ---------------- */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Live Bid Rankings</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {rankedBids.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-16">Rank</TableHead>
-                    <TableHead>Contractor</TableHead>
-                    <TableHead className="text-right">Bid Price</TableHead>
-                    <TableHead className="w-32">Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rankedBids.map((bid) => (
-                    <TableRow
-                      key={bid.id}
-                      className={`${
-                        bid.rank === 1
-                          ? "border-l-4 border-success bg-green-50/40"
-                          : "hover:bg-neutral-50"
-                      }`}
-                    >
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          #{bid.rank}
-                          {bid.rank === 1 && <Trophy className="w-4 h-4 text-success" />}
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-medium">{bid.contractor}</TableCell>
-                      <TableCell className="text-right font-mono">
-                        {formatPrice(bid.price)}
-                      </TableCell>
-                      <TableCell>{getStatusBadge(bid.status)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <p className="text-neutral-400 italic">No bids yet. Be the first to place one!</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* ---------------- My Bid ---------------- */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">My Bid</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {hasBid && myBid ? (
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-neutral-500 mb-1">Current Bid Amount</p>
-                  <p className="text-2xl font-bold text-blue-600">{formatPrice(myBid)}</p>
+                  {/* Error / Disabled states */}
+                  {error && (
+                    <p className="mt-2 text-sm font-medium text-[color:var(--color-error)]">
+                      {error}
+                    </p>
+                  )}
+                  {!canBid && (
+                    <p className="mt-2 text-xs italic text-[color:var(--color-text-primary)]/50">
+                      Bidding is closed for this package.
+                    </p>
+                  )}
                 </div>
-                <Button
-                  variant="outline"
-                  className="border-blue-500 text-blue-600 hover:bg-blue-50 bg-transparent"
-                >
-                  Edit Bid
-                </Button>
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-neutral-500 mb-4">You haven’t placed a bid yet</p>
-                <Button className="bg-primary hover:bg-[#c50010]">Place My Bid</Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          </div>
+          {/* Right Container */}
+          <div className="col-span-1 bg-white">
+            <Leaderboard
+              bids={leaderboard.bids}
+              viewers={leaderboard.viewers}
+              formatAmount={formatAmount}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
