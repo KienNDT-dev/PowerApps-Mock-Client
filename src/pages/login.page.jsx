@@ -1,12 +1,7 @@
 import { useState } from "react";
 import { AlertCircle, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useLogin } from "../hooks/useLogin";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-} from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -74,9 +69,7 @@ export default function Login() {
         },
         onError: (error) => {
           let message =
-            error?.data?.error?.message ||
-            error?.message ||
-            "Login failed. Please try again.";
+            error?.data?.error?.message || error?.message || "Login failed. Please try again.";
           setErrors({
             submit: message,
           });
@@ -97,25 +90,17 @@ export default function Login() {
           {/* Mobile Header */}
           <div className="bg-primary px-6 py-8 text-center">
             <div className="flex items-center justify-center gap-3 mb-4">
-              <img
-                src={logoUrl || "/placeholder.svg"}
-                alt="Company logo"
-                className="h-8 w-auto"
-              />
+              <img src={logoUrl || "/placeholder.svg"} alt="Company logo" className="h-8 w-auto" />
               <h1 className="text-xl font-semibold text-neutral-100">MyApp</h1>
             </div>
-            <p className="text-neutral-100/90 text-sm">
-              Welcome back! Please sign in to continue.
-            </p>
+            <p className="text-neutral-100/90 text-sm">Welcome back! Please sign in to continue.</p>
           </div>
 
           {/* Mobile Form */}
           <div className="flex-1 px-6 py-8">
             <Card className="animate-in fade-in-0 slide-in-from-bottom-2 duration-300 bg-card border-0 shadow-lg">
               <CardHeader className="space-y-1 pb-6">
-                <h2 className="text-2xl font-semibold text-text-primary">
-                  Sign In
-                </h2>
+                <h2 className="text-2xl font-semibold text-text-primary">Sign In</h2>
                 <p className="text-muted-foreground text-sm">
                   Enter your credentials to access your account
                 </p>
@@ -142,9 +127,7 @@ export default function Login() {
                       onChange={handleInputChange}
                       disabled={loginMutation.isLoading}
                       aria-invalid={!!errors.email}
-                      className={
-                        errors.email ? "ring-2 ring-error border-error" : ""
-                      }
+                      className={errors.email ? "ring-2 ring-error border-error" : ""}
                     />
                     {errors.email && (
                       <p className="text-sm text-error" role="alert">
@@ -173,9 +156,7 @@ export default function Login() {
                         onClick={togglePasswordVisibility}
                         disabled={loginMutation.isLoading}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                        aria-label={
-                          showPassword ? "Hide password" : "Show password"
-                        }
+                        aria-label={showPassword ? "Hide password" : "Show password"}
                       >
                         {showPassword ? (
                           <EyeOff className="h-4 w-4" />
@@ -230,12 +211,10 @@ export default function Login() {
               <img src={logoUrl} alt="Lof logo" className="h-16 w-auto" />
               <h1 className="text-3xl font-bold text-neutral-100">Lof</h1>
             </div>
-            <h2 className="text-2xl font-semibold text-neutral-100 mb-4">
-              Welcome, Contractor
-            </h2>
+            <h2 className="text-2xl font-semibold text-neutral-100 mb-4">Welcome, Contractor</h2>
             <p className="text-neutral-100/90 text-lg leading-relaxed">
-              Sign in to access your bidding invitations, submit proposals, and
-              track your progress with ease.
+              Sign in to access your bidding invitations, submit proposals, and track your progress
+              with ease.
             </p>
           </div>
         </div>
@@ -245,9 +224,7 @@ export default function Login() {
           <div className="w-full max-w-md">
             <Card className="animate-in fade-in-0 slide-in-from-bottom-2 duration-300 bg-card border-0 shadow-xl">
               <CardHeader className="space-y-1 pb-8">
-                <h2 className="text-3xl font-semibold text-text-primary">
-                  Sign In
-                </h2>
+                <h2 className="text-3xl font-semibold text-text-primary">Sign In</h2>
                 <p className="text-muted-foreground">
                   Enter your credentials to access your account
                 </p>
@@ -262,10 +239,7 @@ export default function Login() {
                     </div>
                   )}
                   <div className="space-y-2">
-                    <Label
-                      htmlFor="desktop-email"
-                      className="text-text-primary font-medium"
-                    >
+                    <Label htmlFor="desktop-email" className="text-text-primary font-medium">
                       Email
                     </Label>
                     <Input
@@ -286,10 +260,7 @@ export default function Login() {
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label
-                      htmlFor="desktop-password"
-                      className="text-text-primary font-medium"
-                    >
+                    <Label htmlFor="desktop-password" className="text-text-primary font-medium">
                       Password
                     </Label>
                     <div className="relative">
@@ -309,9 +280,7 @@ export default function Login() {
                         onClick={togglePasswordVisibility}
                         disabled={loginMutation.isLoading}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                        aria-label={
-                          showPassword ? "Hide password" : "Show password"
-                        }
+                        aria-label={showPassword ? "Hide password" : "Show password"}
                       >
                         {showPassword ? (
                           <EyeOff className="h-5 w-5" />

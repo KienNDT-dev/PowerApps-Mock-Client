@@ -3,8 +3,31 @@ import { Users, Gavel, TrendingUp } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import LeaderboardBid from "./LeaderboardBid";
+import { useMemo, useRef } from "react";
 
-export default function Leaderboard({ bids, viewers, formatAmount }) {
+export default function Leaderboard({ bids, viewers }) {
+  const prevRanksRef = useRef(new Map());
+
+  const rankedBids = useMemo(() => {
+    if (!bids || bids.length === 0) return [];
+    return bids
+      .filter((bid) => bid.amount > 0)
+      .map((bid) => ({ ...bid }))
+      .sort((a, b) => a.amount - b.amount)
+      .map((bid, index) => ({ ...bid, rank: index + 1 }));
+  }, [bids]);
+
+  const movementById = useMemo(() => {
+    const map = new Map();
+    for (const b of rankedBids) {
+      const prev = prevRanksRef.current.get(b.bidId);
+      const movement = prev ? (b.rank < prev ? "up" : b.rank > prev ? "down" : "same") : "same";
+      map.set(b.bidId, movement);
+    }
+    prevRanksRef.current = new Map(rankedBids.map((b) => [b.bidId, b.rank]));
+    return map;
+  }, [rankedBids]);
+
   return (
     <Card className="h-full rounded-2xl shadow-lg border border-border bg-background/70 backdrop-blur-sm">
       <CardHeader className="pb-3 border-b">
@@ -15,7 +38,7 @@ export default function Leaderboard({ bids, viewers, formatAmount }) {
               Leaderboard
             </CardTitle>
 
-            {/* 🔴 Live Indicator */}
+            {/* Live Indicator */}
             <div className="flex items-center gap-2 mt-1">
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75 animate-ping"></span>
@@ -25,7 +48,7 @@ export default function Leaderboard({ bids, viewers, formatAmount }) {
             </div>
           </div>
 
-          {/* 👥 Viewers Tooltip */}
+          {/* Viewers Tooltip */}
           <Tooltip>
             <TooltipTrigger asChild>
               <motion.div
@@ -47,7 +70,7 @@ export default function Leaderboard({ bids, viewers, formatAmount }) {
       </CardHeader>
 
       <CardContent className="pt-4 overflow-hidden">
-        {bids.length === 0 ? (
+        {rankedBids.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -58,26 +81,30 @@ export default function Leaderboard({ bids, viewers, formatAmount }) {
             <p className="text-xs">Be the first to place your bid!</p>
           </motion.div>
         ) : (
-          <div className="space-y-2 max-h-[calc(100vh-16rem)] overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 pr-2">
+          <motion.div
+            layout
+            className="space-y-2 max-h-[calc(100vh-16rem)] overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 pr-2"
+          >
             <AnimatePresence mode="popLayout">
-              {bids
-                .sort((a, b) => a.rank - b.rank) // Ensure proper sorting
-                .map((bid) => (
-                  <LeaderboardBid key={bid.bidId} bid={bid} />
-                ))}
+              {rankedBids.map((bid) => (
+                <LeaderboardBid
+                  key={bid.bidId}
+                  bid={bid}
+                  movement={movementById.get(bid.bidId)} // 👈 pass movement
+                />
+              ))}
             </AnimatePresence>
-          </div>
+          </motion.div>
         )}
 
-        {/* Bid count indicator */}
-        {bids.length > 0 && (
+        {rankedBids.length > 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="mt-4 pt-3 border-t border-border/50 text-center"
           >
             <p className="text-xs text-muted-foreground">
-              {bids.length} bid{bids.length !== 1 ? "s" : ""} received
+              {rankedBids.length} bid{rankedBids.length !== 1 ? "s" : ""} received
             </p>
           </motion.div>
         )}

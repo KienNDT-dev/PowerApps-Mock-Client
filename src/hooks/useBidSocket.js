@@ -8,27 +8,27 @@ export function useBidSocket(token, bidPackageId) {
   const [viewers, setViewers] = useState(0);
   const [roomJoined, setRoomJoined] = useState(false);
 
+  const calculateRanks = (bids) => {
+    return bids
+      .sort((a, b) => a.amount - b.amount)
+      .map((bid, index) => ({ ...bid, rank: index + 1 }));
+  };
+
   useEffect(() => {
     if (!socket || !isConnected || !bidPackageId) {
       setRoomJoined(false);
       return;
     }
 
-    console.log("Joining bid room:", bidPackageId);
-
     socket.emit("join:bidPackage", { bidPackageId }, (response) => {
       if (response?.success) {
-        console.log("✅ Joined bid room:", response.roomName);
         setRoomJoined(true);
       } else {
-        console.error("❌ Failed to join room:", response?.message);
         setRoomJoined(false);
       }
     });
 
     const handleNewBid = (bid) => {
-      console.log("📊 New bid received:", bid);
-
       queryClient.setQueryData(["leaderboard", bidPackageId], (oldData) => {
         if (!oldData) return oldData;
 
@@ -42,46 +42,50 @@ export function useBidSocket(token, bidPackageId) {
           updatedBids = [...oldData.bids, bid];
         }
 
-        const sortedBids = updatedBids
-          .sort((a, b) => a.amount - b.amount)
-          .map((bid, index) => ({ ...bid, rank: index + 1 }));
+        const rankedBids = calculateRanks(updatedBids);
+        return { ...oldData, bids: rankedBids };
+      });
 
-        return { ...oldData, bids: sortedBids };
+      queryClient.invalidateQueries({
+        queryKey: ["leaderboard", bidPackageId],
+        exact: true,
+        refetchType: "active",
       });
     };
 
     const handleUpdatedBid = (bid) => {
-      console.log("📊 Bid updated:", bid);
-
       queryClient.setQueryData(["leaderboard", bidPackageId], (oldData) => {
         if (!oldData) return oldData;
 
-        const updatedBids = oldData.bids
-          .map((b) => (b.bidId === bid.bidId ? { ...b, ...bid } : b))
-          .sort((a, b) => a.amount - b.amount)
-          .map((bid, index) => ({ ...bid, rank: index + 1 }));
+        const updatedBids = oldData.bids.map((b) => (b.bidId === bid.bidId ? { ...b, ...bid } : b));
+        const rankedBids = calculateRanks(updatedBids);
+        return { ...oldData, bids: rankedBids };
+      });
 
-        return { ...oldData, bids: updatedBids };
+      queryClient.invalidateQueries({
+        queryKey: ["leaderboard", bidPackageId],
+        exact: true,
+        refetchType: "active",
       });
     };
 
     const handleBidDeleted = ({ bidId }) => {
-      console.log("🗑️ Bid deleted:", bidId);
-
       queryClient.setQueryData(["leaderboard", bidPackageId], (oldData) => {
         if (!oldData) return oldData;
 
-        const updatedBids = oldData.bids
-          .filter((b) => b.bidId !== bidId)
-          .sort((a, b) => a.amount - b.amount)
-          .map((bid, index) => ({ ...bid, rank: index + 1 }));
+        const filteredBids = oldData.bids.filter((b) => b.bidId !== bidId);
+        const rankedBids = calculateRanks(filteredBids);
+        return { ...oldData, bids: rankedBids };
+      });
 
-        return { ...oldData, bids: updatedBids };
+      queryClient.invalidateQueries({
+        queryKey: ["leaderboard", bidPackageId],
+        exact: true,
+        refetchType: "active",
       });
     };
 
     const handleViewerCount = ({ viewers: count }) => {
-      console.log("👥 Viewer count updated:", count);
       setViewers(count);
     };
 
@@ -91,8 +95,6 @@ export function useBidSocket(token, bidPackageId) {
     socket.on("viewer:count", handleViewerCount);
 
     return () => {
-      console.log("🧹 Cleaning up bid socket");
-
       if (socket && bidPackageId) {
         socket.emit("leave:bidPackage", { bidPackageId });
         socket.off("bid:new", handleNewBid);
@@ -114,6 +116,7 @@ export function useBidSocket(token, bidPackageId) {
       });
       return;
     }
+
     socket.emit("bid:create", { bidPackageId, bidPrice, bidName }, callback);
   };
 

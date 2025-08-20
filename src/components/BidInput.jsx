@@ -10,12 +10,15 @@ export default function BidInput({
   error,
   disabled,
   priceEstimate,
+  bidPackageId,
   existingBid = null,
   isSubmitting = false,
 }) {
   const [displayValue, setDisplayValue] = useState("");
   const [localError, setLocalError] = useState("");
-  const [isValid, setIsValid] = useState(true);
+  const [isValid, setIsValid] = useState(false);
+
+  console.log("🔄 BidInput rendered with existingBid:", existingBid);
 
   const estimateNum = (() => {
     if (priceEstimate === null || priceEstimate === undefined) return NaN;
@@ -30,16 +33,24 @@ export default function BidInput({
   const minAllowed = !isNaN(minExact) ? Math.floor(minExact / step) * step : NaN;
   const maxAllowed = !isNaN(maxExact) ? Math.ceil(maxExact / step) * step : NaN;
 
-  // Check if this is an update operation
   const isUpdate = existingBid && existingBid.bidId;
   const buttonText = isUpdate ? "Update Bid" : "Submit Bid";
 
   useEffect(() => {
+    console.log("🔍 BidInput useEffect triggered:", { value, existingBid });
     setDisplayValue(formatCurrency(value || ""));
     validate(value || "");
-  }, [value, priceEstimate]);
+  }, [value, priceEstimate, existingBid?.amount, existingBid?.bidId]);
 
   const validate = (rawDigits) => {
+    console.log("🔍 Validating with data:", {
+      rawDigits,
+      currentAmount: parseInt(rawDigits, 10),
+      existingAmount: existingBid?.amount,
+      isUpdate,
+      existingBid,
+    });
+
     if (!rawDigits) {
       setLocalError("");
       setIsValid(false);
@@ -61,7 +72,6 @@ export default function BidInput({
       }
     }
 
-    // Additional validation for updates - check if amount is different
     if (isUpdate && existingBid && n === existingBid.amount) {
       setLocalError("Please enter a different amount to update your bid.");
       setIsValid(false);
@@ -116,6 +126,33 @@ export default function BidInput({
           {effectiveError && (
             <p className="text-sm text-[color:var(--color-error)] mt-1">{effectiveError}</p>
           )}
+
+          {/* Debug info - shows real-time tracking with proper null checks */}
+          <div className="text-xs text-gray-500 mt-2 p-2 bg-gray-50 rounded">
+            <p>
+              Existing bid:{" "}
+              {existingBid && existingBid.amount
+                ? `₫${existingBid.amount.toLocaleString()}`
+                : "None"}
+            </p>
+            <p>
+              Current input:{" "}
+              {value && !isNaN(parseInt(value, 10))
+                ? `₫${parseInt(value, 10).toLocaleString()}`
+                : "Empty"}
+            </p>
+            <p>
+              Is different:{" "}
+              {existingBid && existingBid.amount && value && !isNaN(parseInt(value, 10))
+                ? parseInt(value, 10) !== existingBid.amount
+                  ? "✅"
+                  : "❌"
+                : "N/A"}
+            </p>
+            <p>Valid: {isValid ? "✅" : "❌"}</p>
+            <p>Button disabled: {isSubmitDisabled ? "❌" : "✅"}</p>
+            <p>Render timestamp: {new Date().toLocaleTimeString()}</p>
+          </div>
         </div>
 
         <Button

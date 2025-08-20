@@ -33,7 +33,7 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     setIsLoading(true);
     try {
-      await authAxios.post("/auth/logout", {}, { withCredentials: true });
+      await authAxios.post("/contractor-auth/logout", {}, { withCredentials: true });
     } catch (error) {
     } finally {
       setAccessToken(null);
@@ -44,7 +44,7 @@ export function AuthProvider({ children }) {
 
   // Refresh: POST to /auth/refresh, update access token
   const refresh = useCallback(async () => {
-    const res = await authAxios.post("/auth/refresh", {}, { withCredentials: true });
+    const res = await authAxios.post("/contractor-auth/refresh", {}, { withCredentials: true });
     setAccessToken(res.data.accessToken);
     return res.data.accessToken;
   }, []);

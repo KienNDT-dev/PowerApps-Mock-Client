@@ -42,7 +42,6 @@ export default function BiddingPortal() {
     canBid,
   } = data || {};
 
-  // Find my existing bid from leaderboard data
   const myExistingBid = useMemo(() => {
     if (!leaderboardData?.bids) return null;
     return leaderboardData.bids.find((bid) => bid.isMine) || null;
@@ -67,7 +66,6 @@ export default function BiddingPortal() {
         setIsSubmitting(false);
         if (response?.success) {
           setBidAmount("");
-          console.log("Bid updated successfully:", response.bid);
         } else {
           setError(response?.message || "Failed to update bid");
         }
@@ -201,6 +199,7 @@ export default function BiddingPortal() {
                       if (error) setError("");
                     }}
                     onSubmit={handleBidSubmit}
+                    bidPackageId={cr97b_bidpackageid}
                     error={error}
                     disabled={!canBid || !isConnected}
                     existingBid={myExistingBid}
