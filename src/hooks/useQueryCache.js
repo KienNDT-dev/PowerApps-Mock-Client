@@ -22,7 +22,6 @@ export function useQueryCache(queryKey, selector = (data) => data) {
         event.type === "updated" &&
         JSON.stringify(event.query.queryKey) === JSON.stringify(queryKey)
       ) {
-        console.log("🔄 Cache updated for:", queryKey);
         updateData();
       }
     });

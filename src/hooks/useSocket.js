@@ -9,10 +9,7 @@ export function useSocket(token) {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    console.log("useSocket effect running with token:", !!token);
-
     if (!token || token.trim() === "") {
-      console.log("No token provided, cleaning up socket");
       if (socketInstance) {
         socketInstance.disconnect();
         socketInstance = null;
@@ -23,8 +20,6 @@ export function useSocket(token) {
     }
 
     if (!socketInstance) {
-      console.log("Creating NEW socket connection to:", SOCKET_URL);
-
       socketInstance = io(SOCKET_URL, {
         auth: {
           token: token,
@@ -38,12 +33,10 @@ export function useSocket(token) {
       });
 
       socketInstance.on("connect", () => {
-        console.log("✅ Socket connected successfully:", socketInstance.id);
         setIsConnected(true);
       });
 
       socketInstance.on("disconnect", (reason) => {
-        console.log("❌ Socket disconnected:", reason);
         setIsConnected(false);
       });
 
@@ -52,7 +45,6 @@ export function useSocket(token) {
         setIsConnected(false);
 
         if (error.message.includes("token")) {
-          console.log("Token error detected, resetting socket");
           socketInstance.disconnect();
           socketInstance = null;
           socketRef.current = null;
@@ -63,13 +55,11 @@ export function useSocket(token) {
     socketRef.current = socketInstance;
 
     return () => {
-      console.log("useSocket cleanup function called");
     };
   }, [token]);
 
   useEffect(() => {
     return () => {
-      console.log("useSocket unmounting, cleaning up");
       if (socketInstance) {
         socketInstance.disconnect();
         socketInstance = null;

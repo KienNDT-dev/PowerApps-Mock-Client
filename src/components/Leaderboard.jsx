@@ -13,7 +13,15 @@ export default function Leaderboard({ bids, viewers, isExpired }) {
     return bids
       .filter((bid) => bid.amount > 0)
       .map((bid) => ({ ...bid }))
-      .sort((a, b) => a.amount - b.amount)
+      .sort((a, b) => {
+        if (a.amount !== b.amount) {
+          return a.amount - b.amount;
+        }
+        const timeA = new Date(a.updatedOn).getTime();
+        const timeB = new Date(b.updatedOn).getTime();
+
+        return timeA - timeB;
+      })
       .map((bid, index) => ({ ...bid, rank: index + 1 }));
   }, [bids]);
 

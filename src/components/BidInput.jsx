@@ -19,8 +19,6 @@ export default function BidInput({
   const [localError, setLocalError] = useState("");
   const [isValid, setIsValid] = useState(false);
 
-  console.log("🔄 BidInput rendered with existingBid:", existingBid);
-
   const estimateNum = (() => {
     if (priceEstimate === null || priceEstimate === undefined) return NaN;
     if (typeof priceEstimate === "number") return priceEstimate;
@@ -38,20 +36,11 @@ export default function BidInput({
   const buttonText = isExpired ? "Bid Ended" : isUpdate ? "Update Bid" : "Submit Bid";
 
   useEffect(() => {
-    console.log("🔍 BidInput useEffect triggered:", { value, existingBid });
     setDisplayValue(formatCurrency(value || ""));
     validate(value || "");
   }, [value, priceEstimate, existingBid?.amount, existingBid?.bidId]);
 
   const validate = (rawDigits) => {
-    console.log("🔍 Validating with data:", {
-      rawDigits,
-      currentAmount: parseInt(rawDigits, 10),
-      existingAmount: existingBid?.amount,
-      isUpdate,
-      existingBid,
-    });
-
     if (!rawDigits) {
       setLocalError("");
       setIsValid(false);

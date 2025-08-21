@@ -41,17 +41,6 @@ export default function BiddingPortal() {
     }
   }, [data?.cr97b_submissiondeadline]);
 
-  // Log notifications whenever they change
-  useEffect(() => {
-    if (notifications && notifications.length > 0) {
-      console.log("📋 Dashboard Notifications:", notifications);
-      console.log(`📊 Total notifications: ${notifications.length}`);
-      notifications.forEach((notif, index) => {
-        console.log(`  ${index + 1}. [${notif.type}] ${notif.message} - ${notif.timeAgo}`);
-      });
-    }
-  }, [notifications]);
-
   const {
     cr97b_bidpackageid,
     cr97b_submissiondeadline,
@@ -98,7 +87,6 @@ export default function BiddingPortal() {
         setIsSubmitting(false);
         if (response?.success) {
           setBidAmount("");
-          console.log("Bid created successfully:", response.bid);
         } else {
           setError(response?.message || "Failed to create bid");
         }
