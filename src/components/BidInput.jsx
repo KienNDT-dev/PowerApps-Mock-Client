@@ -13,6 +13,7 @@ export default function BidInput({
   bidPackageId,
   existingBid = null,
   isSubmitting = false,
+  isExpired = false,
 }) {
   const [displayValue, setDisplayValue] = useState("");
   const [localError, setLocalError] = useState("");
@@ -34,7 +35,7 @@ export default function BidInput({
   const maxAllowed = !isNaN(maxExact) ? Math.ceil(maxExact / step) * step : NaN;
 
   const isUpdate = existingBid && existingBid.bidId;
-  const buttonText = isUpdate ? "Update Bid" : "Submit Bid";
+  const buttonText = isExpired ? "Bid Ended" : isUpdate ? "Update Bid" : "Submit Bid";
 
   useEffect(() => {
     console.log("🔍 BidInput useEffect triggered:", { value, existingBid });
@@ -91,13 +92,18 @@ export default function BidInput({
 
   const effectiveError = error || localError;
   const isSubmitDisabled =
-    disabled || !!effectiveError || !isValid || !(value && parseInt(value, 10) > 0) || isSubmitting;
+    disabled ||
+    isExpired ||
+    !!effectiveError ||
+    !isValid ||
+    !(value && parseInt(value, 10) > 0) ||
+    isSubmitting;
 
   return (
     <div className="border-t pt-6">
       <h3 className="font-semibold mb-4">
-        {isUpdate ? "Update Your Bid" : "Place Your Bid"}
-        {isUpdate && existingBid && (
+        {isExpired ? "Bidding Period Ended" : isUpdate ? "Update Your Bid" : "Place Your Bid"}
+        {isUpdate && existingBid && !isExpired && (
           <span className="text-sm font-normal text-muted-foreground ml-2">
             (Current: {formatCurrency(existingBid.amount)} VND)
           </span>
@@ -109,31 +115,35 @@ export default function BidInput({
           <Input
             type="text"
             inputMode="numeric"
-            placeholder="Enter amount (VND)"
+            placeholder={isExpired ? "Bidding has ended" : "Enter amount (VND)"}
             value={displayValue}
             onChange={handleChange}
             aria-invalid={!!effectiveError}
             className={effectiveError ? "border-[color:var(--color-error)]" : ""}
-            disabled={disabled || isSubmitting}
+            disabled={disabled || isSubmitting || isExpired}
           />
 
-          {!isNaN(minAllowed) && (
+          {!isNaN(minAllowed) && !isExpired && (
             <p className="text-xs text-[color:var(--color-text-primary)]/60 mt-1">
               Allowed range: {formatCurrency(minAllowed)} – {formatCurrency(maxAllowed)} VND
             </p>
           )}
 
-          {effectiveError && (
+          {effectiveError && !isExpired && (
             <p className="text-sm text-[color:var(--color-error)] mt-1">{effectiveError}</p>
           )}
         </div>
 
         <Button
           onClick={onSubmit}
-          className="w-full bg-[color:var(--color-primary)] hover:bg-[color:var(--color-primary)]/90 text-white"
+          className={`w-full ${
+            isExpired
+              ? "bg-gray-400 hover:bg-gray-400 cursor-not-allowed"
+              : "bg-[color:var(--color-primary)] hover:bg-[color:var(--color-primary)]/90"
+          } text-white`}
           disabled={isSubmitDisabled}
         >
-          {isSubmitting ? (
+          {isSubmitting && !isExpired ? (
             <span className="flex items-center gap-2">
               <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
               {isUpdate ? "Updating..." : "Submitting..."}

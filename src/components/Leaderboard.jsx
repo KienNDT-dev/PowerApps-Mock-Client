@@ -1,11 +1,11 @@
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Users, Gavel, TrendingUp } from "lucide-react";
+import { Users, Gavel, TrendingUp, Clock } from "lucide-react";
 import { motion, AnimatePresence, Reorder } from "framer-motion";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import LeaderboardBid from "./LeaderboardBid";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-export default function Leaderboard({ bids, viewers }) {
+export default function Leaderboard({ bids, viewers, isExpired }) {
   const prevRanksRef = useRef(new Map());
 
   const rankedBids = useMemo(() => {
@@ -48,11 +48,20 @@ export default function Leaderboard({ bids, viewers }) {
               Leaderboard
             </CardTitle>
             <div className="flex items-center gap-2 mt-1">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75 animate-ping" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
-              </span>
-              <span className="text-sm font-medium text-red-600">Live</span>
+              {isExpired ? (
+                <>
+                  <Clock className="h-3 w-3 text-gray-500" />
+                  <span className="text-sm font-medium text-gray-500">Ended</span>
+                </>
+              ) : (
+                <>
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75 animate-ping" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+                  </span>
+                  <span className="text-sm font-medium text-red-600">Live</span>
+                </>
+              )}
             </div>
           </div>
 

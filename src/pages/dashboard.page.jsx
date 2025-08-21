@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Clock } from "lucide-react";
 import { useGetMyBidPackage } from "@/hooks/useGetMyBidPackage";
@@ -17,7 +17,7 @@ export default function BiddingPortal() {
   const { accessToken } = useAuth();
   const { data, isLoading: bidPackageLoading } = useGetMyBidPackage();
 
-  const { viewers, isConnected, createBid, updateBid } = useBidSocket(
+  const { viewers, isConnected, notifications, createBid, updateBid } = useBidSocket(
     accessToken,
     data?.cr97b_bidpackageid
   );
@@ -30,6 +30,27 @@ export default function BiddingPortal() {
   const [bidAmount, setBidAmount] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isExpired, setIsExpired] = useState(false);
+
+  // Check if deadline has passed
+  useEffect(() => {
+    if (data?.cr97b_submissiondeadline) {
+      const now = new Date();
+      const deadline = new Date(data.cr97b_submissiondeadline);
+      setIsExpired(now > deadline);
+    }
+  }, [data?.cr97b_submissiondeadline]);
+
+  // Log notifications whenever they change
+  useEffect(() => {
+    if (notifications && notifications.length > 0) {
+      console.log("📋 Dashboard Notifications:", notifications);
+      console.log(`📊 Total notifications: ${notifications.length}`);
+      notifications.forEach((notif, index) => {
+        console.log(`  ${index + 1}. [${notif.type}] ${notif.message} - ${notif.timeAgo}`);
+      });
+    }
+  }, [notifications]);
 
   const {
     cr97b_bidpackageid,
@@ -48,6 +69,8 @@ export default function BiddingPortal() {
   }, [leaderboardData]);
 
   const handleBidSubmit = () => {
+    if (isExpired) return;
+
     if (!bidAmount || isNaN(Number(bidAmount))) {
       setError("Please enter a valid amount");
       return;
@@ -111,6 +134,7 @@ export default function BiddingPortal() {
                 priceEstimate={cr97b_priceestimate}
                 hasBid={hasBid}
                 canBid={canBid}
+                isExpired={isExpired}
               />
               <CardContent className="space-y-8 text-[color:var(--color-text-primary)]">
                 <div className="space-y-3">
@@ -121,15 +145,61 @@ export default function BiddingPortal() {
                 </div>
 
                 <div className="rounded-xl border border-[color:var(--color-primary)] bg-[color:var(--color-primary)]/5 p-4 flex flex-col gap-4">
-                  <div className="flex items-start gap-3">
-                    <Clock className="h-6 w-6 text-[color:var(--color-primary)] mt-1" />
-                    <div>
-                      <p className="text-sm font-medium text-[color:var(--color-text-primary)]/70">
-                        Submission Deadline
-                      </p>
-                      <p className="text-lg font-bold text-[color:var(--color-primary)]">
-                        {formatDate(cr97b_submissiondeadline)}
-                      </p>
+                  <div
+                    className={`rounded-xl p-4 flex flex-col gap-4 border transition-colors
+    ${
+      isExpired
+        ? "border-gray-300 bg-gray-50"
+        : "border-[color:var(--color-primary)] bg-[color:var(--color-primary)]/5"
+    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={`mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-lg ring-1
+          ${
+            isExpired
+              ? "bg-gray-100 text-gray-500 ring-gray-200"
+              : "bg-[color:var(--color-primary)]/10 text-[color:var(--color-primary)] ring-[color:var(--color-primary)]/20"
+          }`}
+                        >
+                          <Clock className="h-5 w-5" />
+                        </div>
+
+                        <div>
+                          <p
+                            className={`text-xs font-medium tracking-wide uppercase
+          ${isExpired ? "text-gray-500" : "text-[color:var(--color-text-primary)]/70"}`}
+                          >
+                            Submission Deadline
+                          </p>
+
+                          <p
+                            className={`mt-1 text-xl font-bold leading-snug
+            ${isExpired ? "text-gray-600" : "text-[color:var(--color-primary)]"}`}
+                          >
+                            {isExpired
+                              ? "Bidding Period Ended"
+                              : formatDate(cr97b_submissiondeadline)}
+                          </p>
+
+                          {!isExpired && (
+                            <p className="mt-1 text-xs text-[color:var(--color-text-primary)]/60">
+                              Please submit before the closing time.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <span
+                        className={`shrink-0 inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${
+                          isExpired
+                            ? "bg-gray-100 text-gray-600 ring-gray-200"
+                            : "bg-[color:var(--color-primary)]/10 text-[color:var(--color-primary)] ring-[color:var(--color-primary)]/20"
+                        }`}
+                      >
+                        {isExpired ? "Closed" : "Open"}
+                      </span>
                     </div>
                   </div>
 
@@ -138,11 +208,7 @@ export default function BiddingPortal() {
                       date={new Date(cr97b_submissiondeadline)}
                       renderer={({ days, hours, minutes, seconds, completed }) => {
                         if (completed) {
-                          return (
-                            <span className="text-[color:var(--color-error)] font-semibold text-lg">
-                              Closed
-                            </span>
-                          );
+                          return;
                         }
                         return (
                           <div className="flex gap-3 w-full justify-around">
@@ -204,16 +270,22 @@ export default function BiddingPortal() {
                     disabled={!canBid || !isConnected}
                     existingBid={myExistingBid}
                     isSubmitting={isSubmitting}
+                    isExpired={isExpired}
                   />
 
-                  {!canBid && (
+                  {!canBid && !isExpired && (
                     <p className="mt-2 text-xs italic text-[color:var(--color-text-primary)]/50">
                       Bidding is closed for this package.
                     </p>
                   )}
-                  {!isConnected && (
+                  {!isConnected && !isExpired && (
                     <p className="mt-2 text-xs italic text-yellow-600">
                       Connecting to live updates...
+                    </p>
+                  )}
+                  {isExpired && (
+                    <p className="mt-2 text-xs italic text-gray-500">
+                      The bidding period for this package has ended.
                     </p>
                   )}
                 </div>
@@ -226,6 +298,7 @@ export default function BiddingPortal() {
               bids={leaderboardData?.bids || []}
               viewers={viewers}
               formatAmount={formatAmount}
+              isExpired={isExpired}
             />
           </div>
         </div>
