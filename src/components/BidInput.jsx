@@ -126,33 +126,6 @@ export default function BidInput({
           {effectiveError && (
             <p className="text-sm text-[color:var(--color-error)] mt-1">{effectiveError}</p>
           )}
-
-          {/* Debug info - shows real-time tracking with proper null checks */}
-          <div className="text-xs text-gray-500 mt-2 p-2 bg-gray-50 rounded">
-            <p>
-              Existing bid:{" "}
-              {existingBid && existingBid.amount
-                ? `₫${existingBid.amount.toLocaleString()}`
-                : "None"}
-            </p>
-            <p>
-              Current input:{" "}
-              {value && !isNaN(parseInt(value, 10))
-                ? `₫${parseInt(value, 10).toLocaleString()}`
-                : "Empty"}
-            </p>
-            <p>
-              Is different:{" "}
-              {existingBid && existingBid.amount && value && !isNaN(parseInt(value, 10))
-                ? parseInt(value, 10) !== existingBid.amount
-                  ? "✅"
-                  : "❌"
-                : "N/A"}
-            </p>
-            <p>Valid: {isValid ? "✅" : "❌"}</p>
-            <p>Button disabled: {isSubmitDisabled ? "❌" : "✅"}</p>
-            <p>Render timestamp: {new Date().toLocaleTimeString()}</p>
-          </div>
         </div>
 
         <Button
