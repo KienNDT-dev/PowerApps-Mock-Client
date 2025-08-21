@@ -20,7 +20,6 @@ export function AuthProvider({ children }) {
     if (token) {
       setAccessToken(token);
       localStorage.setItem("accessToken", token);
-      console.log("✅ Access token stored in memory");
     } else {
       localStorage.removeItem("accessToken");
       console.error("❌ No access token found in login response:", res.data);

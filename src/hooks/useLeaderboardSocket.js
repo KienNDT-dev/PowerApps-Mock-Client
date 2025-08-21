@@ -18,12 +18,9 @@ export function useLeaderboardSocket(token, bidPackageId) {
       return;
     }
 
-    console.log("Joining leaderboard room:", bidPackageId);
-
     // Join the bid package room
     socket.emit("join:bidPackage", { bidPackageId }, (response) => {
       if (response?.success) {
-        console.log("✅ Joined leaderboard room:", response.roomName);
         setRoomJoined(true);
       } else {
         console.error("❌ Failed to join room:", response?.message);
@@ -33,8 +30,6 @@ export function useLeaderboardSocket(token, bidPackageId) {
 
     // Handle new bid events
     const handleNewBid = (bid) => {
-      console.log("📊 New bid received:", bid);
-
       queryClient.setQueryData(["leaderboard", bidPackageId], (oldData) => {
         if (!oldData) return oldData;
 
@@ -65,8 +60,6 @@ export function useLeaderboardSocket(token, bidPackageId) {
 
     // Handle bid updates
     const handleUpdatedBid = (bid) => {
-      console.log("📊 Bid updated:", bid);
-
       queryClient.setQueryData(["leaderboard", bidPackageId], (oldData) => {
         if (!oldData) return oldData;
 
@@ -84,14 +77,11 @@ export function useLeaderboardSocket(token, bidPackageId) {
 
     // Handle viewer count updates
     const handleViewerCount = ({ viewers: count }) => {
-      console.log("👥 Viewer count updated:", count);
       setViewers(count);
     };
 
     // Handle bid deletions (if needed)
     const handleBidDeleted = ({ bidId }) => {
-      console.log("🗑️ Bid deleted:", bidId);
-
       queryClient.setQueryData(["leaderboard", bidPackageId], (oldData) => {
         if (!oldData) return oldData;
 
@@ -113,8 +103,6 @@ export function useLeaderboardSocket(token, bidPackageId) {
     socket.on("viewer:count", handleViewerCount);
 
     return () => {
-      console.log("🧹 Cleaning up leaderboard socket listeners");
-
       if (socket && bidPackageId) {
         socket.emit("leave:bidPackage", { bidPackageId });
         socket.off("bid:new", handleNewBid);
@@ -139,7 +127,6 @@ export function useLeaderboardSocket(token, bidPackageId) {
 
     socket.emit("bid:create", { bidPackageId, bidPrice, bidName }, (response) => {
       if (response?.success) {
-        console.log("✅ Bid created successfully:", response.bid);
       } else {
         console.error("❌ Failed to create bid:", response?.message);
       }
@@ -158,7 +145,6 @@ export function useLeaderboardSocket(token, bidPackageId) {
 
     socket.emit("bid:update", { bidId, bidPackageId, updateFields }, (response) => {
       if (response?.success) {
-        console.log("✅ Bid updated successfully:", response.bid);
       } else {
         console.error("❌ Failed to update bid:", response?.message);
       }
